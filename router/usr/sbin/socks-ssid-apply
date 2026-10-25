@@ -1,0 +1,56 @@
+#!/bin/sh
+# Apply /etc/socks-ssid/socks-ssid.uci on the router. Idempotent: every
+# section the generator owns (pxN*, br_pxN, socks_ssid_*) is removed first,
+# so proxies dropped from proxies.csv disappear too.
+set -e
+
+BATCH=/etc/socks-ssid/socks-ssid.uci
+[ -f "$BATCH" ] || { echo "missing $BATCH"; exit 1; }
+
+radio_for_band() {
+	for dev in $(uci -q show wireless | sed -n "s/^wireless\.\([^.=]*\)=wifi-device$/\1/p"); do
+		[ "$(uci -q get "wireless.$dev.band")" = "$1" ] && { echo "$dev"; return; }
+	done
+}
+
+RADIO_2G="$(radio_for_band 2g)"
+RADIO_5G="$(radio_for_band 5g)"
+[ -n "$RADIO_2G" ] && [ -n "$RADIO_5G" ] || { echo "cannot find 2g/5g radios"; exit 1; }
+
+for cfg in network wireless dhcp firewall; do
+	for sec in $(uci -q show "$cfg" | sed -En "s/^$cfg\.(px[0-9]+[a-z0-9_]*|br_px[0-9]+|socks_ssid_[a-z_]+)=.*/\1/p"); do
+		uci delete "$cfg.$sec"
+	done
+done
+# OpenWrt's stock "OpenWrt" open APs.
+for sec in $(uci -q show wireless | sed -n "s/^wireless\.\(default_radio[0-9]*\)=wifi-iface$/\1/p"); do
+	uci delete "wireless.$sec"
+done
+
+sed -e "s/@RADIO_2G@/$RADIO_2G/g" -e "s/@RADIO_5G@/$RADIO_5G/g" "$BATCH" | uci batch
+uci commit
+
+# The package's own single-instance service would fight for the same role.
+if [ -x /etc/init.d/hev-socks5-tproxy ]; then
+	/etc/init.d/hev-socks5-tproxy stop 2>/dev/null || true
+	/etc/init.d/hev-socks5-tproxy disable 2>/dev/null || true
+fi
+
+grep -qxF /etc/socks-ssid/ /etc/sysupgrade.conf 2>/dev/null || cat >> /etc/sysupgrade.conf <<'EOF'
+/etc/socks-ssid/
+/etc/init.d/socks-ssid
+/etc/nftables.d/90-socks-ssid.nft
+/usr/sbin/socks-ssid-apply
+EOF
+
+/etc/init.d/network reload
+wifi reload
+/etc/init.d/dnsmasq restart
+/etc/init.d/firewall restart
+/etc/init.d/socks-ssid enable
+/etc/init.d/socks-ssid restart
+echo "socks-ssid applied: $(ls /etc/socks-ssid/px*.yml | wc -l) proxies (2g=$RADIO_2G 5g=$RADIO_5G)"
+# Dropbear must not be restarted from inside the SSH session running this
+# script: the stop kills the session and the start never happens. reload_config
+# lets procd restart it (only if /etc/config/dropbear changed) on its own.
+reload_config

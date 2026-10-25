@@ -1,0 +1,21 @@
+# Proxy list with credentials and Wi-Fi keys
+proxies.csv
+*.csv
+!proxies.example.csv
+
+# Generated router config (contains credentials), firmware images, router backups
+build/
+firmware/
+*.rsc
+*.tar.gz
+
+# Keys, certificates, env files
+*.pem
+*.key
+*.crt
+*.p12
+id_*
+.env
+.env.*
+
+.DS_Store

@@ -1,0 +1,23 @@
+#!/bin/sh /etc/rc.common
+# One hev-socks5-tproxy instance per proxy SSID (/etc/socks-ssid/pxN.yml).
+
+START=95
+USE_PROCD=1
+PROG=/usr/bin/hev-socks5-tproxy
+CONF_DIR=/etc/socks-ssid
+
+start_service() {
+	local conf name
+	for conf in "$CONF_DIR"/px*.yml; do
+		[ -f "$conf" ] || continue
+		name="$(basename "$conf" .yml)"
+		procd_open_instance "$name"
+		procd_set_param command "$PROG" "$conf"
+		procd_set_param respawn 3600 5 0
+		procd_set_param limits nofile="65535 65535"
+		procd_set_param stdout 1
+		procd_set_param stderr 1
+		procd_set_param file "$conf"
+		procd_close_instance
+	done
+}

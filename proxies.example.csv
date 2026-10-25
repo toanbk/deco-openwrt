@@ -1,0 +1,8 @@
+# Copy to proxies.csv (git-ignored) and fill in. One row = one SSID = one SOCKS5 proxy.
+# id: 1..250, fixes subnet 172.20.<id>.0/24 and TPROXY port 12000+<id>. Keep it stable per proxy.
+# band: 2g | 5g | both   (about 8 SSIDs per radio is the practical limit, 16 the hard one)
+# proxy_user/proxy_pass: leave both empty for a proxy without auth.
+# dns: space separated public IPv4 resolvers handed out by DHCP; queries go through the proxy. Empty = 1.1.1.1 8.8.8.8
+id,ssid,wifi_key,band,proxy_host,proxy_port,proxy_user,proxy_pass,dns
+1,Proxy-01,change-me-01,both,203.0.113.10,1080,user1,pass1,
+2,Proxy-02,change-me-02,5g,203.0.113.11,1080,,,1.1.1.1
