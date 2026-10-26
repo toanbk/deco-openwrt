@@ -150,6 +150,10 @@ def hev_yaml(r):
         "  log-file: stderr",
         "  log-level: warn",
         "  limit-nofile: 65535",
+        # Every UDP flow (each DNS query) holds its own SOCKS5 control connection
+        # until this idle timeout. The default 60s piles up ~100 of them per busy
+        # client, which exhausts 3proxy's per-listener connection limit.
+        "  udp-read-write-timeout: 15000",
     ]
     return "\n".join(lines) + "\n"
 
